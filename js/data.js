@@ -1,0 +1,16 @@
+// Demo data. Replace with API responses when the backend is ready.
+export const initialProducts=[
+{id:"prd_001",name:"Personalized Photo Magnet",sku:"MAG-001",category:"Personalized",cost:20,price:45,status:"Active",description:"Custom photo magnet"},
+{id:"prd_002",name:"Baby Milestone Magnet",sku:"MAG-002",category:"Souvenirs",cost:25,price:55,status:"Active",description:"Baby milestone keepsake"},
+{id:"prd_003",name:"Glossy Photo Print 4R",sku:"PRT-001",category:"Printing",cost:8,price:20,status:"Active",description:"4R glossy photo print"},
+{id:"prd_004",name:"Custom Thank You Card",sku:"CRD-001",category:"Printing",cost:12,price:30,status:"Active",description:"Personalized thank you card"},
+{id:"prd_005",name:"Baby Milestone Box",sku:"BOX-001",category:"Personalized",cost:180,price:350,status:"Active",description:"Milestone keepsake box"},
+{id:"prd_006",name:"Digital Bible Story Ebook",sku:"DIG-001",category:"Digital",cost:15,price:100,status:"Active",description:"Digital downloadable ebook"}
+];
+export const initialMaterials=[
+{id:"mat_001",name:"Glossy photo paper",sku:"MAT-001",unit:"sheet",cost:5,stock:15,reorder:20},
+{id:"mat_002",name:"Magnet sheet",sku:"MAT-002",unit:"sheet",cost:8,stock:12,reorder:15},
+{id:"mat_003",name:"Printer ink",sku:"MAT-003",unit:"bottle",cost:320,stock:2,reorder:3},
+{id:"mat_004",name:"Plastic packaging",sku:"MAT-004",unit:"piece",cost:4,stock:120,reorder:30},
+{id:"mat_005",name:"Sticker paper",sku:"MAT-005",unit:"sheet",cost:6,stock:45,reorder:20}
+];

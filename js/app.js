@@ -324,17 +324,41 @@ $("#globalSearch").addEventListener("keydown", (e) => {
     filterProducts();
   }
 });
-function materialLine(qty = 1, cost = 5) {
-  return `<div class="material-line"><div><label class="form-label">Material</label><select class="form-select"><option>Photo paper</option><option>Magnet sheet</option><option>Ink</option><option>Packaging</option><option>Sticker paper</option></select></div><div><label class="form-label">Qty</label><input class="form-control material-qty" type="number" min="0" step=".01" value="${qty}"></div><div><label class="form-label">Unit cost</label><input class="form-control material-cost" type="number" min="0" step=".01" value="${cost}"></div><button class="remove-row" type="button"><i class="bi bi-x"></i></button></div>`;
+function materialLine(qty = 1, selectedId = "") {
+  const options = materials.length
+    ? materials.map((m) => `<option value="${safe(m.id)}" ${m.id === selectedId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`).join("")
+    : '<option value="">No materials available — add one in Materials</option>';
+  const selected = materials.find((m) => m.id === selectedId) || materials[0];
+  const unitCost = selected ? Number(selected.cost) || 0 : 0;
+  return `<div class="material-line"><div><label class="form-label">Material</label><select class="form-select material-select" required>${options}</select></div><div><label class="form-label">Qty (${safe(selected?.unit || "unit")})</label><input class="form-control material-qty" type="number" min="0" step=".01" value="${qty}"></div><div><label class="form-label">Unit cost (₱)</label><input class="form-control material-cost" type="number" min="0" step=".01" value="${unitCost}"></div><button class="remove-row" type="button" aria-label="Remove material"><i class="bi bi-x"></i></button></div>`;
 }
-$("#materialRows").innerHTML =
-  materialLine(1, 5) +
-  materialLine(1, 8) +
-  materialLine(1, 3) +
-  materialLine(1, 4);
+function refreshCostingMaterialOptions() {
+  document.querySelectorAll(".material-line").forEach((row) => {
+    const select = row.querySelector(".material-select");
+    const previousId = select.value;
+    const previousMaterial = materials.find((m) => m.id === previousId);
+    const previousCost = row.querySelector(".material-cost").value;
+    const options = materials.map((m) => `<option value="${safe(m.id)}" ${m.id === previousId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`).join("");
+    select.innerHTML = options || '<option value="">No materials available — add one in Materials</option>';
+    const selected = materials.find((m) => m.id === select.value);
+    if (!previousMaterial && selected) row.querySelector(".material-cost").value = Number(selected.cost) || 0;
+    row.querySelector("label:nth-of-type(2)").textContent = `Qty (${selected?.unit || "unit"})`;
+    if (!selected) row.querySelector(".material-cost").value = 0;
+  });
+}
+$("#materialRows").innerHTML = materialLine(1);
 $("#addMaterialRow").addEventListener("click", () => {
-  $("#materialRows").insertAdjacentHTML("beforeend", materialLine());
+  $("#materialRows").insertAdjacentHTML("beforeend", materialLine(1));
   calculate();
+});
+$("#materialRows").addEventListener("change", (e) => {
+  if (e.target.matches(".material-select")) {
+    const row = e.target.closest(".material-line");
+    const selected = materials.find((m) => m.id === e.target.value);
+    row.querySelector(".material-cost").value = selected ? Number(selected.cost) || 0 : 0;
+    row.querySelector("label:nth-of-type(2)").textContent = `Qty (${selected?.unit || "unit"})`;
+    calculate();
+  }
 });
 $("#materialRows").addEventListener("input", calculate);
 $("#materialRows").addEventListener("click", (e) => {
@@ -343,9 +367,7 @@ $("#materialRows").addEventListener("click", (e) => {
     calculate();
   }
 });
-document
-  .querySelectorAll(".calc-input,#targetPercent,#pricingMethod")
-  .forEach((el) => el.addEventListener("input", calculate));
+document.querySelectorAll(".calc-input,#targetPercent,#pricingMethod").forEach((el) => el.addEventListener("input", calculate));
 function calculate() {
   const material = [...document.querySelectorAll(".material-line")].reduce(
       (s, r) =>
@@ -392,9 +414,44 @@ function exportCsv() {
 }
 $("#exportCsv").addEventListener("click", exportCsv);
 $("#exportCsv2").addEventListener("click", exportCsv);
-$("#saveCosting").addEventListener("click", () =>
-  notify("Costing draft calculated. Database save is not connected yet."),
-);
+const COSTINGS_STORAGE_KEY = "costify_costing_drafts_v1";
+$("#saveCosting").addEventListener("click", () => {
+  const draft = {
+    id: `cost_${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    materials: [...document.querySelectorAll(".material-line")].map((row) => {
+      const material = materials.find((m) => m.id === row.querySelector(".material-select").value);
+      return {
+        materialId: material?.id || "",
+        materialName: material?.name || "Unselected material",
+        unit: material?.unit || "unit",
+        quantity: Number(row.querySelector(".material-qty").value) || 0,
+        unitCost: Number(row.querySelector(".material-cost").value) || 0
+      };
+    }),
+    expenses: {
+      labor: Number($("#laborCost").value) || 0,
+      machine: Number($("#machineCost").value) || 0,
+      packaging: Number($("#packagingCost").value) || 0,
+      other: Number($("#otherCost").value) || 0
+    },
+    pricingMethod: $("#pricingMethod").value,
+    targetPercent: Number($("#targetPercent").value) || 0,
+    totalCost: [...document.querySelectorAll(".material-line")].reduce((sum, row) =>
+      sum + (Number(row.querySelector(".material-qty").value) || 0) * (Number(row.querySelector(".material-cost").value) || 0), 0)
+      + ["laborCost", "machineCost", "packagingCost", "otherCost"].reduce((sum, id) => sum + (Number($("#" + id).value) || 0), 0)
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(COSTINGS_STORAGE_KEY) || "[]");
+    saved.unshift(draft);
+    localStorage.setItem(COSTINGS_STORAGE_KEY, JSON.stringify(saved));
+    if (localStorage.getItem(COSTINGS_STORAGE_KEY) !== JSON.stringify(saved)) throw new Error("Save verification failed");
+    notify("Costing draft saved in this browser. Inventory was not deducted.");
+  } catch (error) {
+    console.error("Could not save costing draft:", error);
+    notify("Could not save costing draft. Check browser storage and try again.");
+  }
+});
 $("#addMaterialBtn").addEventListener("click", () => openMaterial());
 function openStockMovement() {
   $("#stockMovementForm").reset();

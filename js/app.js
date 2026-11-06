@@ -1,6 +1,7 @@
 import { initialProducts, initialMaterials } from "./data.js";
 const PRODUCTS_STORAGE_KEY = "costify_products_v1";
 const MATERIALS_STORAGE_KEY = "costify_materials_v1";
+const MOVEMENTS_STORAGE_KEY = "costify_stock_movements_v1";
 function loadProducts() {
   try {
     const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
@@ -25,8 +26,21 @@ function loadMaterials() {
   }
   return [...initialMaterials];
 }
+function loadMovements() {
+  try {
+    const saved = localStorage.getItem(MOVEMENTS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (error) {
+    console.warn("Could not load stock movements:", error);
+  }
+  return [];
+}
 let products = loadProducts(),
-  materials = loadMaterials();
+  materials = loadMaterials(),
+  stockMovements = loadMovements();
 function saveProducts() {
   try {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
@@ -47,6 +61,34 @@ function saveMaterials(nextMaterials = materials) {
     return true;
   } catch (error) {
     console.error("Could not save materials:", error);
+    return false;
+  }
+}
+function saveInventoryState(nextMaterials, nextMovements) {
+  const previousMaterials = localStorage.getItem(MATERIALS_STORAGE_KEY);
+  const previousMovements = localStorage.getItem(MOVEMENTS_STORAGE_KEY);
+  try {
+    const materialJSON = JSON.stringify(nextMaterials);
+    const movementJSON = JSON.stringify(nextMovements);
+    localStorage.setItem(MATERIALS_STORAGE_KEY, materialJSON);
+    localStorage.setItem(MOVEMENTS_STORAGE_KEY, movementJSON);
+    if (
+      localStorage.getItem(MATERIALS_STORAGE_KEY) !== materialJSON ||
+      localStorage.getItem(MOVEMENTS_STORAGE_KEY) !== movementJSON
+    ) throw new Error("Inventory save verification failed");
+    materials = nextMaterials;
+    stockMovements = nextMovements;
+    return true;
+  } catch (error) {
+    console.error("Could not save inventory transaction:", error);
+    try {
+      if (previousMaterials === null) localStorage.removeItem(MATERIALS_STORAGE_KEY);
+      else localStorage.setItem(MATERIALS_STORAGE_KEY, previousMaterials);
+      if (previousMovements === null) localStorage.removeItem(MOVEMENTS_STORAGE_KEY);
+      else localStorage.setItem(MOVEMENTS_STORAGE_KEY, previousMovements);
+    } catch (rollbackError) {
+      console.error("Inventory rollback failed:", rollbackError);
+    }
     return false;
   }
 }
@@ -103,9 +145,21 @@ function renderMaterials() {
   $("#inventoryTable").innerHTML = materials
     .map(
       (m) =>
-        `<tr><td>${safe(m.name)}</td><td>Raw material</td><td>${m.stock} ${safe(m.unit)}</td><td>${m.reorder} ${safe(m.unit)}</td><td>${m.stock <= m.reorder ? "Reorder" : "Healthy"}</td></tr>`,
+        `<tr><td><strong>${safe(m.name)}</strong></td><td>Raw material</td><td>${m.stock} ${safe(m.unit)}</td><td>${m.reorder} ${safe(m.unit)}</td><td><span class="pill">${m.stock <= m.reorder ? "Low stock" : "Healthy"}</span></td></tr>`,
     )
     .join("");
+  const lowStock = materials.filter((m) => Number(m.stock) <= Number(m.reorder));
+  $("#inventoryLowCount").textContent = lowStock.length;
+  $("#inventoryMaterialCount").textContent = materials.length;
+  $("#inventoryMovementCount").textContent = stockMovements.length;
+  $("#inventoryTotalUnits").textContent = materials.reduce((sum, m) => sum + Number(m.stock || 0), 0).toLocaleString("en-PH");
+  $("#stockMovementTable").innerHTML = stockMovements.slice(0, 30).map((move) => {
+    const material = materials.find((m) => m.id === move.materialId);
+    const signed = move.type === "Stock out" ? -Number(move.quantity) : move.type === "Adjustment" ? Number(move.after) - Number(move.before) : Number(move.quantity);
+    const date = new Date(move.createdAt);
+    return `<tr><td>${date.toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</td><td>${safe(move.materialName)}</td><td>${safe(move.type)}</td><td class="${signed < 0 ? "text-danger" : "positive"}">${signed > 0 ? "+" : ""}${signed} ${safe(move.unit)}</td><td>${move.before} → ${move.after}</td><td>${safe(move.note || "—")}</td></tr>`;
+  }).join("");
+  $("#stockMovementEmpty").classList.toggle("d-none", stockMovements.length > 0);
 }
 function openMaterial(material = null) {
   $("#materialForm").reset();
@@ -342,9 +396,66 @@ $("#saveCosting").addEventListener("click", () =>
   notify("Costing draft calculated. Database save is not connected yet."),
 );
 $("#addMaterialBtn").addEventListener("click", () => openMaterial());
-$("#stockAction").addEventListener("click", () =>
-  notify("Stock adjustment workflow is planned for a future phase."),
-);
+function openStockMovement() {
+  $("#stockMovementForm").reset();
+  $("#stockMovementMaterial").innerHTML = materials.map((m) => `<option value="${safe(m.id)}">${safe(m.name)} (Current: ${m.stock} ${safe(m.unit)})</option>`).join("");
+  $("#stockMovementType").value = "Stock in";
+  $("#stockMovementQuantity").value = 1;
+  $("#stockMovementNote").value = "";
+  $("#stockMovementModalTitle").textContent = "Record stock movement";
+  stockMovementModal.show();
+}
+const stockMovementModal = new bootstrap.Modal($("#stockMovementModal"));
+$("#stockAction").addEventListener("click", () => {
+  if (!materials.length) {
+    notify("Add a material first before recording stock.");
+    return;
+  }
+  openStockMovement();
+});
+$("#stockMovementForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const materialId = $("#stockMovementMaterial").value;
+  const type = $("#stockMovementType").value;
+  const quantity = Number($("#stockMovementQuantity").value);
+  const note = $("#stockMovementNote").value.trim();
+  const material = materials.find((m) => m.id === materialId);
+  if (!material || !Number.isFinite(quantity) || quantity <= 0) {
+    notify("Choose a material and enter a quantity greater than zero.");
+    return;
+  }
+  const before = Number(material.stock) || 0;
+  const after = type === "Stock in"
+    ? before + quantity
+    : type === "Stock out"
+      ? before - quantity
+      : quantity;
+  if (after < 0) {
+    notify("Insufficient stock. Stock out cannot make inventory negative.");
+    return;
+  }
+  const updatedMaterials = materials.map((m) => m.id === materialId ? { ...m, stock: after } : m);
+  const movement = {
+    id: `mov_${Date.now()}`,
+    materialId,
+    materialName: material.name,
+    unit: material.unit,
+    type,
+    quantity,
+    before,
+    after,
+    note,
+    createdAt: new Date().toISOString(),
+  };
+  const updatedMovements = [movement, ...stockMovements];
+  if (!saveInventoryState(updatedMaterials, updatedMovements)) {
+    notify("Stock movement was not saved. Check browser storage and try again.");
+    return;
+  }
+  renderMaterials();
+  stockMovementModal.hide();
+  notify(`${type} recorded successfully`);
+});
 $("#newOrder").addEventListener("click", () =>
   notify("Order workflow is planned for a future phase."),
 );

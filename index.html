@@ -432,24 +432,53 @@
                 </p>
               </div>
               <button class="btn btn-primary-custom" id="stockAction">
-                Adjust stock
+                <i class="bi bi-arrow-left-right"></i> Record movement
               </button>
             </div>
 
+            <div class="stats-grid mb-3">
+              <article class="stat-card">
+                <span>Tracked materials</span>
+                <h2 id="inventoryMaterialCount">0</h2>
+                <small>Raw material types</small>
+              </article>
+              <article class="stat-card">
+                <span>Total units on hand</span>
+                <h2 id="inventoryTotalUnits">0</h2>
+                <small>Combined stock quantities</small>
+              </article>
+              <article class="stat-card">
+                <span>Low stock items</span>
+                <h2 id="inventoryLowCount">0</h2>
+                <small>At or below reorder level</small>
+              </article>
+              <article class="stat-card">
+                <span>Stock movements</span>
+                <h2 id="inventoryMovementCount">0</h2>
+                <small>Recorded transactions</small>
+              </article>
+            </div>
             <article class="panel">
+              <div class="panel-heading">
+                <div><h3>Current stock</h3><p>Live quantities and reorder levels</p></div>
+              </div>
               <div class="table-responsive">
                 <table class="table">
-                  <thead>
-                    <tr>
-                      <th>ITEM</th>
-                      <th>TYPE</th>
-                      <th>ON HAND</th>
-                      <th>REORDER LEVEL</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>ITEM</th><th>TYPE</th><th>ON HAND</th><th>REORDER LEVEL</th><th>STATUS</th></tr></thead>
                   <tbody id="inventoryTable"></tbody>
                 </table>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading">
+                <div><h3>Stock movement history</h3><p>Latest 30 stock-in, stock-out and adjustment records</p></div>
+              </div>
+              <div class="table-responsive">
+                <table class="table">
+                  <thead><tr><th>DATE</th><th>MATERIAL</th><th>TYPE</th><th>CHANGE</th><th>BEFORE → AFTER</th><th>NOTE</th></tr></thead>
+                  <tbody id="stockMovementTable"></tbody>
+                </table>
+                <p id="stockMovementEmpty" class="text-center text-muted py-4 mb-0">No stock movements recorded yet.</p>
               </div>
             </article>
           </section>
@@ -683,6 +712,39 @@
             <div class="modal-footer">
               <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
               <button class="btn btn-primary-custom" type="submit">Save material</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="modal fade" id="stockMovementModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <form id="stockMovementForm">
+            <div class="modal-header">
+              <h5 class="modal-title" id="stockMovementModalTitle">Record stock movement</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <label class="form-label">Material</label>
+              <select class="form-select mb-3" id="stockMovementMaterial" required></select>
+              <label class="form-label">Movement type</label>
+              <select class="form-select mb-3" id="stockMovementType" required>
+                <option>Stock in</option>
+                <option>Stock out</option>
+                <option>Adjustment</option>
+              </select>
+              <label class="form-label">Quantity</label>
+              <input class="form-control mb-3" id="stockMovementQuantity" type="number" min="0.01" step="0.01" required />
+              <small class="form-text text-muted d-block mb-3">For Adjustment, enter the new actual stock balance. For Stock in/out, enter the quantity to add or remove.</small>
+              <label class="form-label">Note / Reference (optional)</label>
+              <textarea class="form-control" id="stockMovementNote" rows="2" maxlength="250" placeholder="e.g. Purchased 2 packs / Used for order #001"></textarea>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-primary-custom" type="submit">Save movement</button>
             </div>
           </form>
         </div>

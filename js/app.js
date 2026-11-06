@@ -1,6 +1,27 @@
 import { initialProducts, initialMaterials } from "./data.js";
-let products = [...initialProducts],
+const PRODUCTS_STORAGE_KEY = "costify_products_v1";
+function loadProducts() {
+  try {
+    const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (error) {
+    console.warn("Could not load saved products:", error);
+  }
+  return [...initialProducts];
+}
+let products = loadProducts(),
   materials = [...initialMaterials];
+function saveProducts() {
+  try {
+    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
+  } catch (error) {
+    console.error("Could not save products:", error);
+    notify("Unable to save products in this browser");
+  }
+}
 const $ = (s) => document.querySelector(s);
 const money = (n) =>
   new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
@@ -88,6 +109,7 @@ $("#productForm").addEventListener("submit", (e) => {
     description: $("#productDescription").value,
   };
   products = id ? products.map((x) => (x.id === id ? p : x)) : [p, ...products];
+  saveProducts();
   renderProducts();
   modal.hide();
   notify(id ? "Product updated" : "Product added");
@@ -101,6 +123,7 @@ document.addEventListener("click", (e) => {
     const p = products.find((x) => x.id === del.dataset.delete);
     if (p && confirm(`Delete ${p.name}?`)) {
       products = products.filter((x) => x.id !== p.id);
+      saveProducts();
       renderProducts();
       notify("Product deleted");
     }
@@ -114,6 +137,7 @@ document.addEventListener("click", (e) => {
         sku: `COPY-${Date.now().toString().slice(-4)}`,
         name: `${p.name} (Copy)`,
       });
+      saveProducts();
       renderProducts();
       notify("Product duplicated");
     }

@@ -413,6 +413,7 @@
                       <th>UNIT COST</th>
                       <th>STOCK</th>
                       <th>STATUS</th>
+                      <th>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody id="materialsTable"></tbody>
@@ -632,6 +633,56 @@
               <button class="btn btn-primary-custom" type="submit">
                 Save product
               </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="modal fade" id="materialModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <form id="materialForm">
+            <div class="modal-header">
+              <h5 class="modal-title" id="materialModalTitle">Add material</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="editMaterialId" />
+              <label class="form-label">Material name</label>
+              <input class="form-control mb-3" id="materialName" required maxlength="100" />
+              <label class="form-label">Unit</label>
+              <select class="form-select mb-3" id="materialUnit" required>
+                <option value="piece">Piece</option>
+                <option value="sheet">Sheet</option>
+                <option value="pack">Pack</option>
+                <option value="roll">Roll</option>
+                <option value="bottle">Bottle</option>
+                <option value="meter">Meter</option>
+                <option value="gram">Gram</option>
+                <option value="kilogram">Kilogram</option>
+                <option value="liter">Liter</option>
+              </select>
+              <div class="row g-3">
+                <div class="col-12 col-sm-6">
+                  <label class="form-label">Unit cost (₱)</label>
+                  <input class="form-control" id="materialCost" type="number" min="0" step="0.01" required />
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label">Current stock</label>
+                  <input class="form-control" id="materialStock" type="number" min="0" step="0.01" required />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Reorder level</label>
+                  <input class="form-control" id="materialReorder" type="number" min="0" step="0.01" required />
+                  <small class="form-text text-muted">You'll see a low-stock warning when stock reaches this level.</small>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-primary-custom" type="submit">Save material</button>
             </div>
           </form>
         </div>

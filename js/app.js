@@ -1,5 +1,6 @@
 import { initialProducts, initialMaterials } from "./data.js";
 const PRODUCTS_STORAGE_KEY = "costify_products_v1";
+const MATERIALS_STORAGE_KEY = "costify_materials_v1";
 function loadProducts() {
   try {
     const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
@@ -12,14 +13,41 @@ function loadProducts() {
   }
   return [...initialProducts];
 }
+function loadMaterials() {
+  try {
+    const saved = localStorage.getItem(MATERIALS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (error) {
+    console.warn("Could not load saved materials:", error);
+  }
+  return [...initialMaterials];
+}
 let products = loadProducts(),
-  materials = [...initialMaterials];
+  materials = loadMaterials();
 function saveProducts() {
   try {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
+    return true;
   } catch (error) {
     console.error("Could not save products:", error);
     notify("Unable to save products in this browser");
+    return false;
+  }
+}
+function saveMaterials(nextMaterials = materials) {
+  try {
+    const serialized = JSON.stringify(nextMaterials);
+    localStorage.setItem(MATERIALS_STORAGE_KEY, serialized);
+    if (localStorage.getItem(MATERIALS_STORAGE_KEY) !== serialized) {
+      throw new Error("Material storage verification failed");
+    }
+    return true;
+  } catch (error) {
+    console.error("Could not save materials:", error);
+    return false;
   }
 }
 const $ = (s) => document.querySelector(s);
@@ -28,6 +56,7 @@ const money = (n) =>
     Number(n) || 0,
   );
 const modal = new bootstrap.Modal($("#productModal")),
+  materialModal = new bootstrap.Modal($("#materialModal")),
   toast = new bootstrap.Toast($("#appToast"));
 function notify(message) {
   $("#toastMessage").textContent = message;
@@ -68,16 +97,73 @@ function renderMaterials() {
   $("#materialsTable").innerHTML = materials
     .map(
       (m) =>
-        `<tr><td>${safe(m.name)}</td><td>${m.sku}</td><td>${m.unit}</td><td>${money(m.cost)}</td><td>${m.stock}</td><td><span class="pill">${m.stock <= m.reorder ? "Low stock" : "In stock"}</span></td></tr>`,
+        `<tr><td><strong>${safe(m.name)}</strong></td><td>${safe(m.sku)}</td><td>${safe(m.unit)}</td><td>${money(m.cost)}</td><td>${m.stock}</td><td><span class="pill">${m.stock <= m.reorder ? "Low stock" : "In stock"}</span></td><td><button class="btn btn-sm btn-light" data-material-edit="${safe(m.id)}" aria-label="Edit ${safe(m.name)}"><i class="bi bi-pencil"></i></button> <button class="btn btn-sm btn-light text-danger" data-material-delete="${safe(m.id)}" aria-label="Delete ${safe(m.name)}"><i class="bi bi-trash"></i></button></td></tr>`,
     )
     .join("");
   $("#inventoryTable").innerHTML = materials
     .map(
       (m) =>
-        `<tr><td>${safe(m.name)}</td><td>Raw material</td><td>${m.stock} ${m.unit}</td><td>${m.reorder} ${m.unit}</td><td>${m.stock <= m.reorder ? "Reorder" : "Healthy"}</td></tr>`,
+        `<tr><td>${safe(m.name)}</td><td>Raw material</td><td>${m.stock} ${safe(m.unit)}</td><td>${m.reorder} ${safe(m.unit)}</td><td>${m.stock <= m.reorder ? "Reorder" : "Healthy"}</td></tr>`,
     )
     .join("");
 }
+function openMaterial(material = null) {
+  $("#materialForm").reset();
+  $("#editMaterialId").value = material?.id || "";
+  $("#materialModalTitle").textContent = material ? "Edit material" : "Add material";
+  $("#materialName").value = material?.name || "";
+  $("#materialUnit").value = material?.unit || "piece";
+  $("#materialCost").value = material?.cost ?? 0;
+  $("#materialStock").value = material?.stock ?? 0;
+  $("#materialReorder").value = material?.reorder ?? 0;
+  materialModal.show();
+}
+$("#materialForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const id = $("#editMaterialId").value;
+  const existing = materials.find((item) => item.id === id);
+  const material = {
+    id: id || `mat_${Date.now()}`,
+    name: $("#materialName").value.trim(),
+    sku: existing?.sku || `MAT-${String(Date.now()).slice(-6)}`,
+    unit: $("#materialUnit").value,
+    cost: Number($("#materialCost").value),
+    stock: Number($("#materialStock").value),
+    reorder: Number($("#materialReorder").value),
+  };
+  const updatedMaterials = id
+    ? materials.map((item) => (item.id === id ? material : item))
+    : [material, ...materials];
+  if (!saveMaterials(updatedMaterials)) {
+    notify("Material was not saved. Check your browser storage and try again.");
+    return;
+  }
+  materials = updatedMaterials;
+  renderMaterials();
+  materialModal.hide();
+  notify(id ? "Material updated" : "Material added");
+});
+document.addEventListener("click", (e) => {
+  const editButton = e.target.closest("[data-material-edit]");
+  const deleteButton = e.target.closest("[data-material-delete]");
+  if (editButton) {
+    const material = materials.find((item) => item.id === editButton.dataset.materialEdit);
+    if (material) openMaterial(material);
+  }
+  if (deleteButton) {
+    const material = materials.find((item) => item.id === deleteButton.dataset.materialDelete);
+    if (material && confirm(`Delete ${material.name}?`)) {
+      const updatedMaterials = materials.filter((item) => item.id !== material.id);
+      if (!saveMaterials(updatedMaterials)) {
+        notify("Material could not be deleted because browser storage failed.");
+        return;
+      }
+      materials = updatedMaterials;
+      renderMaterials();
+      notify("Material deleted");
+    }
+  }
+});
 function openProduct(p = null) {
   $("#productForm").reset();
   $("#editProductId").value = p?.id || "";
@@ -255,9 +341,7 @@ $("#exportCsv2").addEventListener("click", exportCsv);
 $("#saveCosting").addEventListener("click", () =>
   notify("Costing draft calculated. Database save is not connected yet."),
 );
-$("#addMaterialBtn").addEventListener("click", () =>
-  notify("Material creation will be added in a future phase."),
-);
+$("#addMaterialBtn").addEventListener("click", () => openMaterial());
 $("#stockAction").addEventListener("click", () =>
   notify("Stock adjustment workflow is planned for a future phase."),
 );

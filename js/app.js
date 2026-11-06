@@ -239,6 +239,7 @@ function populateCostingDraftSelect(selectedId = "") {
 }
 function openProduct(p = null) {
   $("#productForm").reset();
+  populateCostingDraftSelect(p?.costingDraftId || "");
   $("#editProductId").value = p?.id || "";
   $("#productModalTitle").textContent = p ? "Edit product" : "Add new product";
   $("#productName").value = p?.name || "";

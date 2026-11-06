@@ -471,6 +471,7 @@ $("#saveCosting").addEventListener("click", () => {
     saved.unshift(draft);
     localStorage.setItem(COSTINGS_STORAGE_KEY, JSON.stringify(saved));
     if (localStorage.getItem(COSTINGS_STORAGE_KEY) !== JSON.stringify(saved)) throw new Error("Save verification failed");
+    costingDrafts = saved;
     notify("Costing draft saved in this browser. Inventory was not deducted.");
   } catch (error) {
     console.error("Could not save costing draft:", error);

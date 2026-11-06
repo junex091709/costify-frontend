@@ -160,6 +160,7 @@ function renderMaterials() {
     return `<tr><td>${date.toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</td><td>${safe(move.materialName)}</td><td>${safe(move.type)}</td><td class="${signed < 0 ? "text-danger" : "positive"}">${signed > 0 ? "+" : ""}${signed} ${safe(move.unit)}</td><td>${move.before} → ${move.after}</td><td>${safe(move.note || "—")}</td></tr>`;
   }).join("");
   $("#stockMovementEmpty").classList.toggle("d-none", stockMovements.length > 0);
+  if (typeof refreshCostingMaterialOptions === "function") refreshCostingMaterialOptions();
 }
 function openMaterial(material = null) {
   $("#materialForm").reset();

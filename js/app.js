@@ -2,6 +2,7 @@ import { initialProducts, initialMaterials } from "./data.js";
 const PRODUCTS_STORAGE_KEY = "costify_products_v1";
 const MATERIALS_STORAGE_KEY = "costify_materials_v1";
 const MOVEMENTS_STORAGE_KEY = "costify_stock_movements_v1";
+const COSTINGS_STORAGE_KEY = "costify_costing_drafts_v1";
 function loadProducts() {
   try {
     const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
@@ -26,6 +27,15 @@ function loadMaterials() {
   }
   return [...initialMaterials];
 }
+function loadCostingDrafts() {
+  try { const saved = localStorage.getItem(COSTINGS_STORAGE_KEY); if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed)) return parsed; } }
+  catch (error) { console.warn("Could not load costing drafts:", error); }
+  return [];
+}
+function draftSuggestedPrice(draft) {
+  const cost = Number(draft.totalCost) || 0, pct = Number(draft.targetPercent) || 0;
+  return draft.pricingMethod === "margin" ? (pct >= 100 ? 0 : cost / (1 - pct / 100)) : cost * (1 + pct / 100);
+}
 function loadMovements() {
   try {
     const saved = localStorage.getItem(MOVEMENTS_STORAGE_KEY);
@@ -40,7 +50,8 @@ function loadMovements() {
 }
 let products = loadProducts(),
   materials = loadMaterials(),
-  stockMovements = loadMovements();
+  stockMovements = loadMovements(),
+  costingDrafts = loadCostingDrafts();
 function saveProducts() {
   try {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
@@ -219,6 +230,13 @@ document.addEventListener("click", (e) => {
     }
   }
 });
+function populateCostingDraftSelect(selectedId = "") {
+  const select = $("#productCostingDraft");
+  select.innerHTML = '<option value="">Manual cost entry (no draft)</option>' + costingDrafts.map((draft) => {
+    const date = new Date(draft.createdAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
+    return `<option value="${safe(draft.id)}" ${draft.id === selectedId ? "selected" : ""}>${date} — Cost ${money(draft.totalCost)} — Price ${money(draftSuggestedPrice(draft))}</option>`;
+  }).join("");
+}
 function openProduct(p = null) {
   $("#productForm").reset();
   $("#editProductId").value = p?.id || "";
@@ -234,26 +252,31 @@ function openProduct(p = null) {
 document
   .querySelectorAll("[data-open-product]")
   .forEach((b) => b.addEventListener("click", () => openProduct()));
+$("#productCostingDraft").addEventListener("change", () => {
+  const draft = costingDrafts.find((item) => item.id === $("#productCostingDraft").value);
+  if (draft) { $("#productCost").value = Number(draft.totalCost || 0).toFixed(2); $("#productPrice").value = draftSuggestedPrice(draft).toFixed(2); }
+});
 $("#productForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const id = $("#editProductId").value;
+  const previous = products.find((x) => x.id === id);
+  const selectedDraft = costingDrafts.find((item) => item.id === $("#productCostingDraft").value);
   const p = {
     id: id || `prd_${Date.now()}`,
     name: $("#productName").value.trim(),
-    sku: id
-      ? products.find((x) => x.id === id)?.sku || ""
-      : `NEW-${products.length + 1}`,
+    sku: previous?.sku || `NEW-${products.length + 1}`,
     category: $("#productCategory").value,
     cost: Number($("#productCost").value),
     price: Number($("#productPrice").value),
     status: $("#productStatus").value,
     description: $("#productDescription").value,
+    costingDraftId: selectedDraft?.id || "",
+    costingDetails: selectedDraft ? { materials: selectedDraft.materials || [], expenses: selectedDraft.expenses || {}, pricingMethod: selectedDraft.pricingMethod, targetPercent: selectedDraft.targetPercent, linkedAt: new Date().toISOString() } : previous?.costingDetails || null
   };
-  products = id ? products.map((x) => (x.id === id ? p : x)) : [p, ...products];
-  saveProducts();
-  renderProducts();
-  modal.hide();
-  notify(id ? "Product updated" : "Product added");
+  const nextProducts = id ? products.map((x) => (x.id === id ? p : x)) : [p, ...products];
+  const previousProducts = products; products = nextProducts;
+  if (!saveProducts()) { products = previousProducts; notify("Product was not saved. Check browser storage and try again."); return; }
+  renderProducts(); modal.hide(); notify(id ? "Product updated" : "Product added");
 });
 document.addEventListener("click", (e) => {
   const edit = e.target.closest("[data-edit]"),
@@ -415,7 +438,6 @@ function exportCsv() {
 }
 $("#exportCsv").addEventListener("click", exportCsv);
 $("#exportCsv2").addEventListener("click", exportCsv);
-const COSTINGS_STORAGE_KEY = "costify_costing_drafts_v1";
 $("#saveCosting").addEventListener("click", () => {
   const draft = {
     id: `cost_${Date.now()}`,
@@ -440,8 +462,10 @@ $("#saveCosting").addEventListener("click", () => {
     targetPercent: Number($("#targetPercent").value) || 0,
     totalCost: [...document.querySelectorAll(".material-line")].reduce((sum, row) =>
       sum + (Number(row.querySelector(".material-qty").value) || 0) * (Number(row.querySelector(".material-cost").value) || 0), 0)
-      + ["laborCost", "machineCost", "packagingCost", "otherCost"].reduce((sum, id) => sum + (Number($("#" + id).value) || 0), 0)
+      + ["laborCost", "machineCost", "packagingCost", "otherCost"].reduce((sum, id) => sum + (Number($("#" + id).value) || 0), 0),
+    suggestedPrice: 0
   };
+  draft.suggestedPrice = draftSuggestedPrice(draft);
   try {
     const saved = JSON.parse(localStorage.getItem(COSTINGS_STORAGE_KEY) || "[]");
     saved.unshift(draft);

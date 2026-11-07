@@ -385,7 +385,15 @@ $("#materialRows").addEventListener("change", (e) => {
     calculate();
   }
 });
-$("#materialRows").addEventListener("input", calculate);
+$("#materialRows").addEventListener("input", (e) => {
+  if (e.target.matches(".material-qty, .material-cost")) calculate();
+});
+$("#materialRows").addEventListener("change", (e) => {
+  if (e.target.matches(".material-qty, .material-cost")) calculate();
+});
+$("#materialRows").addEventListener("focusout", (e) => {
+  if (e.target.matches(".material-qty, .material-cost")) calculate();
+});
 $("#materialRows").addEventListener("click", (e) => {
   if (e.target.closest(".remove-row")) {
     e.target.closest(".material-line").remove();

@@ -356,7 +356,7 @@ function materialLine(qty = "", selectedId = "") {
     ...materials.map((m) => `<option value="${safe(m.id)}" ${m.id === selectedId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`)
   ].join("");
   const unitCost = selected ? Number(selected.cost) || 0 : "";
-  return `<div class="material-line"><div><label class="form-label">Material</label><select class="form-select material-select" required>${options}</select></div><div><label class="form-label">Qty (${safe(selected?.unit || "unit")})</label><input class="form-control material-qty" type="number" min="0" step=".01" value="${qty}" placeholder="Enter quantity"></div><div><label class="form-label">Unit cost (₱)</label><input class="form-control material-cost" type="number" min="0" step=".01" value="${unitCost}" placeholder="Select material first"></div><button class="remove-row" type="button" aria-label="Remove material"><i class="bi bi-x"></i></button></div>`;
+  return `<div class="material-line"><div><label class="form-label">Material</label><select class="form-select material-select" required>${options}</select></div><div><label class="form-label">Qty (${safe(selected?.unit || "unit")})</label><input class="form-control material-qty" type="number" min="0" step="1" inputmode="numeric" value="${qty}" placeholder="Enter quantity"></div><div><label class="form-label">Unit cost (₱)</label><input class="form-control material-cost" type="number" min="0" step=".01" value="${unitCost}" placeholder="Select material first"></div><button class="remove-row" type="button" aria-label="Remove material"><i class="bi bi-x"></i></button></div>`;
 }
 function refreshCostingMaterialOptions() {
   document.querySelectorAll("#materialRows .material-line").forEach((row) => {

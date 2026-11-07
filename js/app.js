@@ -349,50 +349,55 @@ $("#globalSearch").addEventListener("keydown", (e) => {
     filterProducts();
   }
 });
-function materialLine(qty = 1, selectedId = "") {
-  const options = materials.length
-    ? materials.map((m) => `<option value="${safe(m.id)}" ${m.id === selectedId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`).join("")
-    : '<option value="">No materials available — add one in Materials</option>';
-  const selected = materials.find((m) => m.id === selectedId) || materials[0];
-  const unitCost = selected ? Number(selected.cost) || 0 : 0;
-  return `<div class="material-line"><div><label class="form-label">Material</label><select class="form-select material-select" required>${options}</select></div><div><label class="form-label">Qty (${safe(selected?.unit || "unit")})</label><input class="form-control material-qty" type="number" min="0" step=".01" value="${qty}"></div><div><label class="form-label">Unit cost (₱)</label><input class="form-control material-cost" type="number" min="0" step=".01" value="${unitCost}"></div><button class="remove-row" type="button" aria-label="Remove material"><i class="bi bi-x"></i></button></div>`;
+function materialLine(qty = "", selectedId = "") {
+  const selected = materials.find((m) => m.id === selectedId);
+  const options = [
+    '<option value="">Select a material</option>',
+    ...materials.map((m) => `<option value="${safe(m.id)}" ${m.id === selectedId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`)
+  ].join("");
+  const unitCost = selected ? Number(selected.cost) || 0 : "";
+  return `<div class="material-line"><div><label class="form-label">Material</label><select class="form-select material-select" required>${options}</select></div><div><label class="form-label">Qty (${safe(selected?.unit || "unit")})</label><input class="form-control material-qty" type="number" min="0" step=".01" value="${qty}" placeholder="Enter quantity"></div><div><label class="form-label">Unit cost (₱)</label><input class="form-control material-cost" type="number" min="0" step=".01" value="${unitCost}" placeholder="Select material first"></div><button class="remove-row" type="button" aria-label="Remove material"><i class="bi bi-x"></i></button></div>`;
 }
 function refreshCostingMaterialOptions() {
-  document.querySelectorAll(".material-line").forEach((row) => {
+  document.querySelectorAll("#materialRows .material-line").forEach((row) => {
     const select = row.querySelector(".material-select");
     const previousId = select.value;
-    const previousMaterial = materials.find((m) => m.id === previousId);
-    const options = materials.map((m) => `<option value="${safe(m.id)}" ${m.id === previousId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`).join("");
-    select.innerHTML = options || '<option value="">No materials available — add one in Materials</option>';
-    const selected = materials.find((m) => m.id === select.value);
-    if (selected) row.querySelector(".material-cost").value = Number(selected.cost) || 0;
-    else row.querySelector(".material-cost").value = 0;
+    const selected = materials.find((m) => m.id === previousId);
+    select.innerHTML = [
+      '<option value="">Select a material</option>',
+      ...materials.map((m) => `<option value="${safe(m.id)}" ${m.id === previousId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`)
+    ].join("");
+    row.querySelector(".material-cost").value = selected ? Number(selected.cost) || 0 : "";
     row.querySelector("label:nth-of-type(2)").textContent = `Qty (${selected?.unit || "unit"})`;
   });
   calculate();
 }
-$("#materialRows").innerHTML = materialLine(1);
+$("#materialRows").innerHTML = materialLine();
 $("#addMaterialRow").addEventListener("click", () => {
-  $("#materialRows").insertAdjacentHTML("beforeend", materialLine(1));
+  $("#materialRows").insertAdjacentHTML("beforeend", materialLine());
   calculate();
 });
 $("#materialRows").addEventListener("change", (e) => {
   if (e.target.matches(".material-select")) {
     const row = e.target.closest(".material-line");
     const selected = materials.find((m) => m.id === e.target.value);
-    row.querySelector(".material-cost").value = selected ? Number(selected.cost) || 0 : 0;
+    row.querySelector(".material-cost").value = selected ? Number(selected.cost) || 0 : "";
+    row.querySelector(".material-qty").placeholder = "Enter quantity";
     row.querySelector("label:nth-of-type(2)").textContent = `Qty (${selected?.unit || "unit"})`;
     calculate();
   }
 });
-$("#materialRows").addEventListener("input", (e) => {
-  if (e.target.matches(".material-qty, .material-cost")) calculate();
-});
-$("#materialRows").addEventListener("change", (e) => {
-  if (e.target.matches(".material-qty, .material-cost")) calculate();
-});
-$("#materialRows").addEventListener("focusout", (e) => {
-  if (e.target.matches(".material-qty, .material-cost")) calculate();
+// Capture numeric edits at document level so summary updates immediately even if
+// another component stops bubbling events from the calculator row.
+document.addEventListener("input", (e) => {
+  if (e.target.matches("#materialRows .material-qty, #materialRows .material-cost")) calculate();
+}, true);
+document.addEventListener("change", (e) => {
+  if (e.target.matches("#materialRows .material-qty, #materialRows .material-cost")) calculate();
+}, true);
+document.querySelectorAll(".calc-input,#targetPercent,#pricingMethod").forEach((el) => {
+  el.addEventListener("input", calculate);
+  el.addEventListener("change", calculate);
 });
 $("#materialRows").addEventListener("click", (e) => {
   if (e.target.closest(".remove-row")) {

@@ -362,14 +362,14 @@ function refreshCostingMaterialOptions() {
     const select = row.querySelector(".material-select");
     const previousId = select.value;
     const previousMaterial = materials.find((m) => m.id === previousId);
-    const previousCost = row.querySelector(".material-cost").value;
     const options = materials.map((m) => `<option value="${safe(m.id)}" ${m.id === previousId ? "selected" : ""}>${safe(m.name)} — ${safe(m.unit)} (${money(m.cost)})</option>`).join("");
     select.innerHTML = options || '<option value="">No materials available — add one in Materials</option>';
     const selected = materials.find((m) => m.id === select.value);
-    if (!previousMaterial && selected) row.querySelector(".material-cost").value = Number(selected.cost) || 0;
+    if (selected) row.querySelector(".material-cost").value = Number(selected.cost) || 0;
+    else row.querySelector(".material-cost").value = 0;
     row.querySelector("label:nth-of-type(2)").textContent = `Qty (${selected?.unit || "unit"})`;
-    if (!selected) row.querySelector(".material-cost").value = 0;
   });
+  calculate();
 }
 $("#materialRows").innerHTML = materialLine(1);
 $("#addMaterialRow").addEventListener("click", () => {

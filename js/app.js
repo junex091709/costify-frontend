@@ -382,6 +382,7 @@ $("#materialRows").addEventListener("change", (e) => {
     const row = e.target.closest(".material-line");
     const selected = materials.find((m) => m.id === e.target.value);
     row.querySelector(".material-cost").value = selected ? Number(selected.cost) || 0 : "";
+    row.querySelector(".material-qty").value = "0";
     row.querySelector(".material-qty").placeholder = "Enter quantity";
     row.querySelector("label:nth-of-type(2)").textContent = `Qty (${selected?.unit || "unit"})`;
     calculate();

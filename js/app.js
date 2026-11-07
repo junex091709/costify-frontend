@@ -394,7 +394,8 @@ $("#materialRows").addEventListener("click", (e) => {
 });
 document.querySelectorAll(".calc-input,#targetPercent,#pricingMethod").forEach((el) => el.addEventListener("input", calculate));
 function calculate() {
-  const material = [...document.querySelectorAll(".material-line")].reduce(
+  const materialRows = [...$("#materialRows").querySelectorAll(".material-line")];
+  const material = materialRows.reduce(
       (s, r) =>
         s +
         Number(r.querySelector(".material-qty").value || 0) *
@@ -443,7 +444,7 @@ $("#saveCosting").addEventListener("click", () => {
   const draft = {
     id: `cost_${Date.now()}`,
     createdAt: new Date().toISOString(),
-    materials: [...document.querySelectorAll(".material-line")].map((row) => {
+    materials: [...$("#materialRows").querySelectorAll(".material-line")].map((row) => {
       const material = materials.find((m) => m.id === row.querySelector(".material-select").value);
       return {
         materialId: material?.id || "",
@@ -461,7 +462,7 @@ $("#saveCosting").addEventListener("click", () => {
     },
     pricingMethod: $("#pricingMethod").value,
     targetPercent: Number($("#targetPercent").value) || 0,
-    totalCost: [...document.querySelectorAll(".material-line")].reduce((sum, row) =>
+    totalCost: [...$("#materialRows").querySelectorAll(".material-line")].reduce((sum, row) =>
       sum + (Number(row.querySelector(".material-qty").value) || 0) * (Number(row.querySelector(".material-cost").value) || 0), 0)
       + ["laborCost", "machineCost", "packagingCost", "otherCost"].reduce((sum, id) => sum + (Number($("#" + id).value) || 0), 0),
     suggestedPrice: 0
